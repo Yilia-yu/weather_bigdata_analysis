@@ -1,0 +1,32 @@
+# ===== 编译产物 =====
+**/target/
+**/dependency-reduced-pom.xml
+
+# ===== 前端依赖 =====
+**/node_modules/
+**/dist/
+
+# ===== IDE 配置 =====
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+*.log
+logs/
+
+# ===== Docker 镜像文件 =====
+*.tar
+*.tar.gz
+
+# ===== 本地配置（含密码等敏感信息） =====
+application-local.yml
+application-local.properties
+.env.local
+
+# ===== 工具生成文件 =====
+.trae-html-share-packages/

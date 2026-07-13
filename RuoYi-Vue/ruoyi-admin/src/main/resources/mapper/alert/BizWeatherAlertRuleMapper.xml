@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.weather.alert.mapper.BizWeatherAlertRuleMapper">
+    
+    <resultMap type="BizWeatherAlertRule" id="BizWeatherAlertRuleResult">
+        <result property="id"    column="id"    />
+        <result property="ruleName"    column="rule_name"    />
+        <result property="alertType"    column="alert_type"    />
+        <result property="metricField"    column="metric_field"    />
+        <result property="thresholdMin"    column="threshold_min"    />
+        <result property="thresholdMax"    column="threshold_max"    />
+        <result property="alertLevel"    column="alert_level"    />
+        <result property="status"    column="status"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectBizWeatherAlertRuleVo">
+        select id, rule_name, alert_type, metric_field, threshold_min, threshold_max, alert_level, status, create_time, update_time, remark from biz_weather_alert_rule
+    </sql>
+
+    <select id="selectBizWeatherAlertRuleList" parameterType="BizWeatherAlertRule" resultMap="BizWeatherAlertRuleResult">
+        <include refid="selectBizWeatherAlertRuleVo"/>
+        <where>  
+            <if test="ruleName != null  and ruleName != ''"> and rule_name like concat('%', #{ruleName}, '%')</if>
+            <if test="alertType != null  and alertType != ''"> and alert_type = #{alertType}</if>
+            <if test="metricField != null  and metricField != ''"> and metric_field = #{metricField}</if>
+            <if test="thresholdMin != null "> and threshold_min = #{thresholdMin}</if>
+            <if test="thresholdMax != null "> and threshold_max = #{thresholdMax}</if>
+            <if test="alertLevel != null  and alertLevel != ''"> and alert_level = #{alertLevel}</if>
+            <if test="status != null "> and status = #{status}</if>
+        </where>
+    </select>
+    
+    <select id="selectBizWeatherAlertRuleById" parameterType="Long" resultMap="BizWeatherAlertRuleResult">
+        <include refid="selectBizWeatherAlertRuleVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertBizWeatherAlertRule" parameterType="BizWeatherAlertRule" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_weather_alert_rule
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="ruleName != null and ruleName != ''">rule_name,</if>
+            <if test="alertType != null and alertType != ''">alert_type,</if>
+            <if test="metricField != null and metricField != ''">metric_field,</if>
+            <if test="thresholdMin != null">threshold_min,</if>
+            <if test="thresholdMax != null">threshold_max,</if>
+            <if test="alertLevel != null and alertLevel != ''">alert_level,</if>
+            <if test="status != null">status,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="ruleName != null and ruleName != ''">#{ruleName},</if>
+            <if test="alertType != null and alertType != ''">#{alertType},</if>
+            <if test="metricField != null and metricField != ''">#{metricField},</if>
+            <if test="thresholdMin != null">#{thresholdMin},</if>
+            <if test="thresholdMax != null">#{thresholdMax},</if>
+            <if test="alertLevel != null and alertLevel != ''">#{alertLevel},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBizWeatherAlertRule" parameterType="BizWeatherAlertRule">
+        update biz_weather_alert_rule
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="ruleName != null and ruleName != ''">rule_name = #{ruleName},</if>
+            <if test="alertType != null and alertType != ''">alert_type = #{alertType},</if>
+            <if test="metricField != null and metricField != ''">metric_field = #{metricField},</if>
+            <if test="thresholdMin != null">threshold_min = #{thresholdMin},</if>
+            <if test="thresholdMax != null">threshold_max = #{thresholdMax},</if>
+            <if test="alertLevel != null and alertLevel != ''">alert_level = #{alertLevel},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBizWeatherAlertRuleById" parameterType="Long">
+        delete from biz_weather_alert_rule where id = #{id}
+    </delete>
+
+    <delete id="deleteBizWeatherAlertRuleByIds" parameterType="String">
+        delete from biz_weather_alert_rule where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.weather.extreme.mapper.ExtremeWeatherAlertMapper">
+    
+    <resultMap type="ExtremeWeatherAlert" id="ExtremeWeatherAlertResult">
+        <result property="id"    column="id"    />
+        <result property="cityName"    column="city_name"    />
+        <result property="province"    column="province"    />
+        <result property="alertType"    column="alert_type"    />
+        <result property="alertLevel"    column="alert_level"    />
+        <result property="metricField"    column="metric_field"    />
+        <result property="alertValue"    column="alert_value"    />
+        <result property="weatherDesc"    column="weather_desc"    />
+        <result property="alertTime"    column="alert_time"    />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <sql id="selectExtremeWeatherAlertVo">
+        select id, city_name, province, alert_type, alert_level, metric_field, alert_value, weather_desc, alert_time, create_time from extreme_weather_alert
+    </sql>
+
+    <select id="selectExtremeWeatherAlertList" parameterType="ExtremeWeatherAlert" resultMap="ExtremeWeatherAlertResult">
+        <include refid="selectExtremeWeatherAlertVo"/>
+        <where>  
+            <if test="cityName != null  and cityName != ''"> and city_name like concat('%', #{cityName}, '%')</if>
+            <if test="province != null  and province != ''"> and province = #{province}</if>
+            <if test="alertType != null  and alertType != ''"> and alert_type = #{alertType}</if>
+            <if test="alertLevel != null  and alertLevel != ''"> and alert_level = #{alertLevel}</if>
+            <if test="metricField != null  and metricField != ''"> and metric_field = #{metricField}</if>
+            <if test="alertValue != null "> and alert_value = #{alertValue}</if>
+            <if test="weatherDesc != null  and weatherDesc != ''"> and weather_desc = #{weatherDesc}</if>
+            <if test="alertTime != null "> and alert_time = #{alertTime}</if>
+        </where>
+    </select>
+    
+    <select id="selectExtremeWeatherAlertById" parameterType="Long" resultMap="ExtremeWeatherAlertResult">
+        <include refid="selectExtremeWeatherAlertVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertExtremeWeatherAlert" parameterType="ExtremeWeatherAlert" useGeneratedKeys="true" keyProperty="id">
+        insert into extreme_weather_alert
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">city_name,</if>
+            <if test="province != null">province,</if>
+            <if test="alertType != null and alertType != ''">alert_type,</if>
+            <if test="alertLevel != null and alertLevel != ''">alert_level,</if>
+            <if test="metricField != null and metricField != ''">metric_field,</if>
+            <if test="alertValue != null">alert_value,</if>
+            <if test="weatherDesc != null">weather_desc,</if>
+            <if test="alertTime != null">alert_time,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">#{cityName},</if>
+            <if test="province != null">#{province},</if>
+            <if test="alertType != null and alertType != ''">#{alertType},</if>
+            <if test="alertLevel != null and alertLevel != ''">#{alertLevel},</if>
+            <if test="metricField != null and metricField != ''">#{metricField},</if>
+            <if test="alertValue != null">#{alertValue},</if>
+            <if test="weatherDesc != null">#{weatherDesc},</if>
+            <if test="alertTime != null">#{alertTime},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateExtremeWeatherAlert" parameterType="ExtremeWeatherAlert">
+        update extreme_weather_alert
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">city_name = #{cityName},</if>
+            <if test="province != null">province = #{province},</if>
+            <if test="alertType != null and alertType != ''">alert_type = #{alertType},</if>
+            <if test="alertLevel != null and alertLevel != ''">alert_level = #{alertLevel},</if>
+            <if test="metricField != null and metricField != ''">metric_field = #{metricField},</if>
+            <if test="alertValue != null">alert_value = #{alertValue},</if>
+            <if test="weatherDesc != null">weather_desc = #{weatherDesc},</if>
+            <if test="alertTime != null">alert_time = #{alertTime},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteExtremeWeatherAlertById" parameterType="Long">
+        delete from extreme_weather_alert where id = #{id}
+    </delete>
+
+    <delete id="deleteExtremeWeatherAlertByIds" parameterType="String">
+        delete from extreme_weather_alert where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

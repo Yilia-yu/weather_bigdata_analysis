@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.weather.city.mapper.BizWeatherCityMapper">
+    
+    <resultMap type="BizWeatherCity" id="BizWeatherCityResult">
+        <result property="id"    column="id"    />
+        <result property="cityName"    column="city_name"    />
+        <result property="province"    column="province"    />
+        <result property="region"    column="region"    />
+        <result property="status"    column="status"    />
+        <result property="sortOrder"    column="sort_order"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectBizWeatherCityVo">
+        select id, city_name, province, region, status, sort_order, create_time, update_time, remark from biz_weather_city
+    </sql>
+
+    <select id="selectBizWeatherCityList" parameterType="BizWeatherCity" resultMap="BizWeatherCityResult">
+        <include refid="selectBizWeatherCityVo"/>
+        <where>  
+            <if test="cityName != null  and cityName != ''"> and city_name like concat('%', #{cityName}, '%')</if>
+            <if test="province != null  and province != ''"> and province = #{province}</if>
+            <if test="region != null  and region != ''"> and region = #{region}</if>
+            <if test="status != null "> and status = #{status}</if>
+            <if test="sortOrder != null "> and sort_order = #{sortOrder}</if>
+        </where>
+    </select>
+    
+    <select id="selectBizWeatherCityById" parameterType="Long" resultMap="BizWeatherCityResult">
+        <include refid="selectBizWeatherCityVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertBizWeatherCity" parameterType="BizWeatherCity" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_weather_city
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">city_name,</if>
+            <if test="province != null and province != ''">province,</if>
+            <if test="region != null and region != ''">region,</if>
+            <if test="status != null">status,</if>
+            <if test="sortOrder != null">sort_order,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">#{cityName},</if>
+            <if test="province != null and province != ''">#{province},</if>
+            <if test="region != null and region != ''">#{region},</if>
+            <if test="status != null">#{status},</if>
+            <if test="sortOrder != null">#{sortOrder},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBizWeatherCity" parameterType="BizWeatherCity">
+        update biz_weather_city
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">city_name = #{cityName},</if>
+            <if test="province != null and province != ''">province = #{province},</if>
+            <if test="region != null and region != ''">region = #{region},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="sortOrder != null">sort_order = #{sortOrder},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBizWeatherCityById" parameterType="Long">
+        delete from biz_weather_city where id = #{id}
+    </delete>
+
+    <delete id="deleteBizWeatherCityByIds" parameterType="String">
+        delete from biz_weather_city where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

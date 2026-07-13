@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.weather.aviation.mapper.AviationMapper">
+
+    <!-- 获取各城市最新天气 -->
+    <select id="selectLatestWeather" resultType="java.util.HashMap">
+        SELECT t1.city_name, t1.temperature, t1.humidity, t1.wind_speed, 
+               t1.weather, t1.aqi, t1.aqi_level, t1.record_time
+        FROM biz_weather_record t1
+        INNER JOIN (
+            SELECT city_name, MAX(id) AS max_id
+            FROM biz_weather_record
+            WHERE record_time >= NOW() - INTERVAL 10 MINUTE
+            GROUP BY city_name
+        ) t2 ON t1.city_name = t2.city_name AND t1.id = t2.max_id
+        ORDER BY t1.city_name
+    </select>
+
+    <!-- 获取最近30条极端天气预警事件 -->
+    <select id="selectRecentAlerts" resultType="java.util.HashMap">
+        SELECT city_name, province, alert_type, alert_level, metric_field, 
+               alert_value, weather_desc, alert_time
+        FROM extreme_weather_alert
+        ORDER BY alert_time DESC
+        LIMIT 30
+    </select>
+
+    <!-- 近7天每天触发极端天气的机场数（读 aviation_daily_stats） -->
+    <select id="selectAirportCountTrend" resultType="java.util.HashMap">
+        SELECT stat_date AS date, (wind_count + rain_count) AS count
+        FROM aviation_daily_stats
+        WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        ORDER BY stat_date
+    </select>
+
+    <!-- 近7天大风 vs 暴雨（读 aviation_daily_stats） -->
+    <select id="selectTypeDistribution" resultType="java.util.HashMap">
+        SELECT stat_date AS date, wind_count AS wind, rain_count AS rain
+        FROM aviation_daily_stats
+        WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        ORDER BY stat_date
+    </select>
+
+    <!-- 机场可靠性排行 TOP10（枢纽机场） -->
+    <select id="selectReliabilityRank" resultType="java.util.HashMap">
+        SELECT city_name,
+               COUNT(DISTINCT DATE(alert_time)) AS alert_days,
+               100 - COUNT(DISTINCT DATE(alert_time)) * 14 AS score
+        FROM extreme_weather_alert
+        WHERE alert_time >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+          AND city_name IN ('北京','上海','广州','成都','深圳','昆明','西安','武汉','乌鲁木齐','哈尔滨')
+        GROUP BY city_name
+        ORDER BY alert_days ASC
+        LIMIT 10
+    </select>
+
+    <!-- 日历热力图 — 7天 × 10个枢纽 -->
+    <select id="selectCalendarData" resultType="java.util.HashMap">
+        SELECT DATE(alert_time) AS date, city_name, alert_level, alert_type
+        FROM extreme_weather_alert
+        WHERE alert_time >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+          AND city_name IN ('北京','上海','广州','成都','深圳','昆明','西安','武汉','乌鲁木齐','哈尔滨')
+        ORDER BY date, city_name
+    </select>
+
+</mapper>

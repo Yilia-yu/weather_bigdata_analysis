@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌤️ 全国天气实时监控大屏</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
+            background: #0a1628; color: #fff; overflow-x: hidden; min-height: 100vh;
+        }
+
+        /* ===== 顶部 ===== */
+        .data-title {
+            height: 48px;
+            background: linear-gradient(90deg, rgba(0,168,255,0.06), rgba(0,212,255,0.12), rgba(0,168,255,0.06));
+            display: flex; justify-content: center; align-items: center;
+            border-bottom: 1px solid rgba(0,212,255,0.25); position: relative; overflow: hidden;
+        }
+        .data-title::before {
+            content: ''; position: absolute; bottom: -1px; left: -100%;
+            width: 60%; height: 1px;
+            background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+            animation: scanLine 3s linear infinite;
+        }
+        @keyframes scanLine { 100% { left: 120%; } }
+        .data-title h1 {
+            font-size: 24px; font-weight: 700; letter-spacing: 5px;
+            background: linear-gradient(90deg, #00d4ff, #7b2ffc, #00d4ff); background-size: 200% auto;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            animation: shimmer 2.5s ease-in-out infinite;
+        }
+        @keyframes shimmer { 0%,100%{background-position:0% center;} 50%{background-position:200% center;} }
+        .data-title .time { position:absolute;right:20px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.7);font-size:11px;letter-spacing:1px; }
+        .data-title .status { position:absolute;left:20px;top:50%;transform:translateY(-50%);color:#00d4ff;font-size:10px;display:flex;align-items:center;gap:5px; }
+        .data-title .status .dot { width:6px;height:6px;border-radius:50%;background:#00d4ff;animation:pulse 1.5s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 8px #00d4ff;} 50%{opacity:0.3;box-shadow:0 0 2px #00d4ff;} }
+
+        /* ===== 主体 ===== */
+        .data-content { display:flex; padding:6px 12px 6px; gap:8px; height:calc(100vh - 48px); }
+        .con-left { width:26%; display:flex; flex-direction:column; gap:5px; }
+        .con-center { width:48%; display:flex; flex-direction:column; gap:5px; }
+        .con-right { width:26%; display:flex; flex-direction:column; gap:5px; }
+
+        /* ===== 卡片 ===== */
+        .panel {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(0,212,255,0.1);
+            border-radius: 6px; padding: 6px 10px 8px; position: relative; overflow: hidden; flex: 1;
+        }
+        .panel .title { font-size:11px;font-weight:600;color:#00d4ff;padding-left:8px;border-left:3px solid #00d4ff;margin-bottom:4px;letter-spacing:1px; }
+        .panel .title .desc { font-size:9px;font-weight:400;color:#8899bb;margin-left:5px; }
+        .panel .charts { width:100%; height:calc(100% - 20px); min-height:80px; }
+
+        /* ===== KPI ===== */
+        .kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+        .kpi-card {
+            background: linear-gradient(135deg, rgba(0,212,255,0.06), rgba(123,47,252,0.04));
+            border:1px solid rgba(0,212,255,0.08); border-radius:6px;
+            padding:7px 10px; text-align:center; transition:all 0.3s;
+        }
+        .kpi-card:hover { border-color:rgba(0,212,255,0.3); transform:translateY(-1px); }
+        .kpi-card .kpi-label { font-size:9px; color:#8899bb; margin-bottom:1px; }
+        .kpi-card .kpi-value { font-size:20px; font-weight:700; color:#00d4ff; min-height:26px; line-height:26px; }
+        .kpi-card .kpi-value.flash { animation:flashVal 0.5s ease-out; }
+        @keyframes flashVal { 0%{transform:scale(1.2);color:#ffd93d;} 100%{transform:scale(1);color:#00d4ff;} }
+        .kpi-card .kpi-change { font-size:10px; margin-top:2px; }
+        .kpi-card .kpi-change.up { color:#ff6b6b; }
+        .kpi-card .kpi-change.down { color:#6bcbff; }
+
+        /* ===== 地图 ===== */
+        #chinaMap { width:100%; height:100%; min-height:200px; }
+
+        /* ===== 告警列表 ===== */
+        .alert-list { height:calc(100% - 20px); overflow-y:auto; padding-right:2px; }
+        .alert-list::-webkit-scrollbar { width:3px; }
+        .alert-list::-webkit-scrollbar-thumb { background:rgba(0,212,255,0.3); border-radius:2px; }
+        .alert-item {
+            display:flex; justify-content:space-between; padding:3px 5px;
+            border-bottom:1px solid rgba(255,255,255,0.02); font-size:10px;
+            border-radius:3px; transition:background 0.3s;
+        }
+        .alert-item.row-changed { animation:rowGlow 1s ease-out; }
+        @keyframes rowGlow { 0%{background:rgba(0,212,255,0.2);} 100%{background:transparent;} }
+        .alert-item .city { color:#00d4ff; font-weight:600; }
+        .alert-item .temp { font-weight:600; }
+        .alert-item .temp.hot { color:#ff6b6b; }
+        .alert-item .temp.cold { color:#6bcbff; }
+        .alert-item .time { color:#556; font-size:9px; }
+        .no-data { color:#445577; text-align:center; padding:20px 0; font-size:10px; }
+
+        /* ===== 🔥 左下角弹幕播报 ===== */
+        .live-feed {
+            position:fixed; bottom:0; left:0; width:400px; height:150px;
+            background:linear-gradient(0deg, rgba(0,18,36,0.97) 0%, rgba(0,18,36,0.3) 80%, transparent 100%);
+            border-right:1px solid rgba(0,212,255,0.12); z-index:999;
+            display:flex; flex-direction:column; pointer-events:none;
+            padding:4px 0 6px 0;
+        }
+        .live-feed .feed-header {
+            color:#00d4ff; font-size:9px; padding:0 10px 3px;
+            display:flex; align-items:center; gap:4px;
+            border-bottom:1px solid rgba(0,212,255,0.08); letter-spacing:1px; flex-shrink:0;
+        }
+        .live-feed .feed-header .live-dot {
+            width:6px; height:6px; border-radius:50%; background:#ff3333;
+            animation:liveBlink 0.5s ease-in-out infinite;
+        }
+        @keyframes liveBlink { 0%,100%{opacity:1;} 50%{opacity:0.1;} }
+        .live-feed .feed-list {
+            flex:1; padding:3px 8px; overflow-y:auto; overflow-x:hidden;
+        }
+        .live-feed .feed-list::-webkit-scrollbar { width:2px; }
+        .live-feed .feed-list::-webkit-scrollbar-thumb { background:rgba(0,212,255,0.2); border-radius:1px; }
+        .feed-item {
+            font-size:10px; color:#8899bb; padding:1px 6px;
+            border-radius:3px; margin:1px 0;
+            animation:feedSlideIn 0.35s ease-out;
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+        }
+        @keyframes feedSlideIn {
+            0% { transform:translateX(-60px); opacity:0; }
+            50% { opacity:1; }
+            100% { transform:translateX(0); opacity:1; }
+        }
+        .feed-item .fcity { color:#00d4ff; font-weight:600; }
+        .feed-item .ftemp { color:#ffd93d; font-weight:600; }
+        .feed-item .fweather { color:#6bcbff; }
+
+        /* ===== 底部流动条 ===== */
+        .data-flow-bar {
+            position:fixed; bottom:0; left:0; right:0; height:2px;
+            background:linear-gradient(90deg, transparent, #00d4ff 20%, #7b2ffc 50%, #00d4ff 80%, transparent);
+            background-size:200% 100%; animation:flowBar 2s linear infinite; z-index:1000;
+        }
+        @keyframes flowBar { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+
+        /* ===== 响应式 ===== */
+        @media (max-width:1200px) { .con-left,.con-right{width:24%;} .con-center{width:52%;} .live-feed{width:320px;height:160px;} }
+        @media (max-width:992px) { .data-content{flex-wrap:wrap;} .con-left,.con-center,.con-right{width:100%;} .live-feed{display:none;} }
+        @media (max-width:768px) {
+            .data-title h1{font-size:18px;letter-spacing:4px;} .data-title .time,.data-title .status{display:none;}
+            .kpi-card .kpi-value{font-size:18px;}
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== 顶部 ===== -->
+<div class="data-title">
+    <div class="status"><span class="dot"></span><span id="statusText">系统运行中</span></div>
+    <h1>🌤️ 全国天气实时监控大屏</h1>
+    <div class="time" id="headerTime">⏱️ 加载中...</div>
+</div>
+
+<!-- ===== 主体 ===== -->
+<div class="data-content">
+
+    <!-- 左侧 -->
+    <div class="con-left">
+        <div class="panel" style="flex:0 0 auto;">
+            <div class="title">📊 核心指标</div>
+            <div class="kpi-grid">
+                <div class="kpi-card"><div class="kpi-label">🏙️ 监控城市</div><div class="kpi-value" id="cityCount">0</div></div>
+                <div class="kpi-card"><div class="kpi-label">🌡️ 平均温度</div><div class="kpi-value" id="avgTemp">--°C</div><div class="kpi-change" id="tempChange">--</div></div>
+                <div class="kpi-card"><div class="kpi-label">🔥 最热城市</div><div class="kpi-value" id="hottestCity" style="font-size:14px;">--</div><div class="kpi-change" id="hottestTemp"></div></div>
+                <div class="kpi-card"><div class="kpi-label">📊 总记录数</div><div class="kpi-value" id="recordCount">0</div></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="title">🌡️ 天气分布 <span class="desc">各天气类型占比</span></div>
+            <div id="pieChart" class="charts"></div>
+        </div>
+
+        <div class="panel">
+            <div class="title">🔔 实时告警 <span class="desc">温度异常城市</span></div>
+            <div class="alert-list" id="alertList"><div class="no-data">暂无告警</div></div>
+        </div>
+    </div>
+
+    <!-- 中间 -->
+    <div class="con-center">
+        <!-- 🔥 中国地图 -->
+        <div class="panel" style="flex:2;">
+            <div class="title">🗺️ 全国温度分布 <span class="desc" id="mapUpdateTime">实时监控</span></div>
+            <div id="chinaMap" class="charts" style="min-height:200px;"></div>
+        </div>
+
+        <div class="panel">
+            <div class="title">📊 温湿风三要素 <span class="desc">温度·湿度·风速叠加趋势</span></div>
+            <div id="tripleChart" class="charts"></div>
+        </div>
+    </div>
+
+    <!-- 右侧 -->
+    <div class="con-right">
+        <div class="panel" style="flex:1.3;">
+            <div class="title">🌍 七大区平均温度 <span class="desc">区域对比</span></div>
+            <div id="regionChart" class="charts"></div>
+        </div>
+
+        <div class="panel" style="flex:1;">
+            <div class="title">📡 数据链路状态 <span class="desc">系统健康监控</span></div>
+            <div id="monitorChart" class="charts"></div>
+        </div>
+
+        <div class="panel" style="flex:0 0 auto;">
+            <div class="title">📦 数据源状态</div>
+            <div style="padding:3px 0;font-size:11px;color:#8899bb;line-height:1.9;">
+                <div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.02);padding:2px 0;"><span>模拟传感器</span><span style="color:#00d4ff;">● 运行中</span></div>
+                <div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.02);padding:2px 0;"><span>Kafka 消息队列</span><span style="color:#00d4ff;">● 运行中</span></div>
+                <div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.02);padding:2px 0;"><span>MySQL 存储</span><span style="color:#00d4ff;">● 运行中</span></div>
+                <div style="display:flex;justify-content:space-between;padding:2px 0;"><span>Redis 缓存</span><span style="color:#00d4ff;">● 运行中</span></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ===== 底部流动条 ===== -->
+<div class="data-flow-bar"></div>
+
+<!-- ===== 右下角弹幕 ===== -->
+<div class="live-feed">
+    <div class="feed-header">
+        <span class="live-dot"></span> ⚠ 极端天气预警
+        <span style="color:#556;font-size:9px;" id="feedCount">0条</span>
+    </div>
+    <div class="feed-list" id="feedList"></div>
+</div>
+
+<script>
+    // ================================================================
+    //  初始化 ECharts
+    // ================================================================
+    const pieChart = echarts.init(document.getElementById('pieChart'));
+    const tripleChart = echarts.init(document.getElementById('tripleChart'));
+    const regionChart = echarts.init(document.getElementById('regionChart'));
+    const monitorChart = echarts.init(document.getElementById('monitorChart'));
+    const chinaMapChart = echarts.init(document.getElementById('chinaMap'));
+
+    let previousData = [];
+    let previousTempMap = {};
+    let feedMessages = [];
+    let totalFeedCount = 0;
+    const FEED_MAX = 50;
+
+    // ================================================================
+    //  工具：数字滚动动画（修复初始值）
+    // ================================================================
+    function animateNumber(el, oldVal, newVal, suffix, decimals) {
+        decimals = decimals || 1;
+        // 首次或相同值：直接设置
+        if (oldVal === undefined || oldVal === null) {
+            el.textContent = newVal.toFixed(decimals) + suffix;
+            el.classList.add('flash');
+            setTimeout(() => el.classList.remove('flash'), 500);
+            return;
+        }
+        if (Math.abs(oldVal - newVal) < 0.01) return;
+
+        el.classList.add('flash');
+        setTimeout(() => el.classList.remove('flash'), 500);
+
+        const duration = 350;
+        const start = performance.now();
+        function step(ts) {
+            const progress = Math.min((ts - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = (oldVal + (newVal - oldVal) * eased).toFixed(decimals) + suffix;
+            if (progress < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+
+    // ================================================================
+    //  弹幕播报（逐个插入 DOM 以触发 CSS 动画）
+    // ================================================================
+    // ---- 预警弹幕队列（逐条平滑弹出） ----
+    let alertQueue = [];
+    let alertTimer = null;
+
+    function pushAlert(city, type, level, value, unit, desc) {
+        const now = new Date();
+        const timeStr = String(now.getHours()).padStart(2,'0')+':'+
+                        String(now.getMinutes()).padStart(2,'0')+':'+
+                        String(now.getSeconds()).padStart(2,'0');
+        const levelColors = { '红色':'#ff4444', '橙色':'#ff8800', '黄色':'#ffd93d', '蓝色':'#00d4ff' };
+        const levelBg = { '红色':'rgba(255,68,68,0.15)', '橙色':'rgba(255,136,0,0.12)', '黄色':'rgba(255,217,61,0.1)', '蓝色':'rgba(0,212,255,0.1)' };
+        const icon = type === '大风' ? '🌬️' : '🌧️';
+
+        totalFeedCount++;
+        document.getElementById('feedCount').textContent = totalFeedCount + '条';
+
+        const container = document.getElementById('feedList');
+        const div = document.createElement('div');
+        div.className = 'feed-item';
+        div.style.background = levelBg[level] || 'transparent';
+        div.innerHTML = `<span style="color:#556;font-size:9px;">${timeStr}</span>
+            <span style="color:${levelColors[level]||'#fff'};font-weight:700;">⚠ ${level}${type}</span>
+            📍 <span class="fcity">${city}</span>
+            ${icon} <span class="ftemp" style="color:${levelColors[level]||'#ffd93d'};">${value}${unit}</span>
+            <span class="fweather">${desc||''}</span>`;
+        container.appendChild(div);
+
+        while (container.children.length > 20) {
+            container.removeChild(container.firstChild);
+        }
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // 队列处理器：每 700ms 从队列取一条弹出
+    function processAlertQueue() {
+        if (alertTimer) return;
+        alertTimer = setInterval(() => {
+            if (alertQueue.length === 0) {
+                clearInterval(alertTimer);
+                alertTimer = null;
+                return;
+            }
+            const a = alertQueue.shift();
+            pushAlert(a.city, a.type, a.level, a.value, a.unit, a.desc);
+        }, 700);
+    }
+
+    // 检测大风和暴雨
+    function detectExtremeAlerts(data) {
+        data.forEach(d => {
+            const w = d.windSpeed || 0;
+            const h = d.humidity || 0;
+            let type = null, level = null, value = 0, unit = '', desc = '';
+
+            if (w >= 20) {
+                type = '大风'; unit = 'km/h'; value = +w.toFixed(1);
+                if (w >= 35) level = '红色'; else if (w >= 30) level = '橙色';
+                else if (w >= 25) level = '黄色'; else level = '蓝色';
+                desc = d.weather || '';
+            } else if (h >= 85) {
+                type = '暴雨'; unit = '%'; value = +h.toFixed(1);
+                if (h >= 98) level = '红色'; else if (h >= 95) level = '橙色';
+                else if (h >= 90) level = '黄色'; else level = '蓝色';
+                desc = d.weather || '';
+            }
+
+            if (type) {
+                alertQueue.push({ city: d.city, type, level, value, unit, desc });
+            }
+        });
+        if (alertQueue.length > 0) processAlertQueue();
+    }
+
+    // ================================================================
+    //  时间
+    // ================================================================
+    function updateTime() {
+        const now = new Date();
+        document.getElementById('headerTime').textContent =
+            '⏱️ ' + now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+
+            String(now.getDate()).padStart(2,'0')+' '+
+            String(now.getHours()).padStart(2,'0')+':'+
+            String(now.getMinutes()).padStart(2,'0')+':'+
+            String(now.getSeconds()).padStart(2,'0');
+    }
+
+    // ================================================================
+    //  城市 → 省份 映射
+    // ================================================================
+    // 注意：GeoJSON 使用省份全名（如"北京市"而非"北京"）
+    const cityToProvince = {
+        '北京':'北京市','上海':'上海市','天津':'天津市','重庆':'重庆市',
+        '石家庄':'河北省','唐山':'河北省','保定':'河北省','太原':'山西省','大同':'山西省',
+        '呼和浩特':'内蒙古自治区','包头':'内蒙古自治区',
+        '沈阳':'辽宁省','大连':'辽宁省','长春':'吉林省','吉林':'吉林省',
+        '哈尔滨':'黑龙江省','大庆':'黑龙江省',
+        '南京':'江苏省','苏州':'江苏省','无锡':'江苏省','杭州':'浙江省','宁波':'浙江省','温州':'浙江省',
+        '合肥':'安徽省','芜湖':'安徽省','福州':'福建省','厦门':'福建省','泉州':'福建省',
+        '南昌':'江西省','九江':'江西省','赣州':'江西省',
+        '济南':'山东省','青岛':'山东省','烟台':'山东省',
+        '郑州':'河南省','洛阳':'河南省','南阳':'河南省',
+        '武汉':'湖北省','宜昌':'湖北省','襄阳':'湖北省',
+        '长沙':'湖南省','岳阳':'湖南省','张家界':'湖南省',
+        '广州':'广东省','深圳':'广东省','珠海':'广东省',
+        '南宁':'广西壮族自治区','桂林':'广西壮族自治区','北海':'广西壮族自治区',
+        '海口':'海南省','三亚':'海南省',
+        '成都':'四川省','绵阳':'四川省','乐山':'四川省',
+        '贵阳':'贵州省','遵义':'贵州省',
+        '昆明':'云南省','丽江':'云南省','大理':'云南省',
+        '拉萨':'西藏自治区','日喀则':'西藏自治区',
+        '西安':'陕西省','咸阳':'陕西省','延安':'陕西省',
+        '兰州':'甘肃省','天水':'甘肃省','敦煌':'甘肃省',
+        '西宁':'青海省','海东':'青海省',
+        '银川':'宁夏回族自治区','石嘴山':'宁夏回族自治区',
+        '乌鲁木齐':'新疆维吾尔自治区','克拉玛依':'新疆维吾尔自治区','喀什':'新疆维吾尔自治区','伊犁':'新疆维吾尔自治区'
+    };
+
+    // ================================================================
+    //  主数据获取
+    // ================================================================
+    function fetchData() {
+        fetch('/api/weather/current')
+            .then(res => res.json())
+            .then(data => {
+                if (!data || data.length === 0) { console.warn('暂无数据'); return; }
+
+                const temps = data.map(d => d.temperature).filter(t => t != null);
+                if (temps.length === 0) return;
+                const avg = temps.reduce((a,b) => a + b, 0) / temps.length;
+                const hottest = data.reduce((a,b) => (a.temperature||0) > (b.temperature||0) ? a : b);
+
+                // ---- KPI ----
+                const prevElCity = document.getElementById('cityCount');
+                const oldCityVal = parseInt(prevElCity.textContent) || 0;
+                animateNumber(prevElCity, oldCityVal, data.length, '', 0);
+
+                const prevElAvg = document.getElementById('avgTemp');
+                const curAvgText = prevElAvg.textContent.replace('°C','');
+                const oldAvg = curAvgText === '--' ? avg : parseFloat(curAvgText) || avg;
+                // 第一次设置直接写
+                if (curAvgText === '--') {
+                    prevElAvg.textContent = avg.toFixed(1) + '°C';
+                } else {
+                    animateNumber(prevElAvg, oldAvg, avg, '°C', 1);
+                }
+
+                const prevElHot = document.getElementById('hottestCity');
+                prevElHot.textContent = hottest.city || '--';
+                const prevElHotTemp = document.getElementById('hottestTemp');
+                const curHotText = prevElHotTemp.textContent.replace('°C','');
+                const oldHotVal = curHotText === '' ? hottest.temperature : parseFloat(curHotText) || hottest.temperature;
+                if (curHotText === '') {
+                    prevElHotTemp.textContent = (hottest.temperature||0).toFixed(1) + '°C';
+                    prevElHotTemp.style.color = '#ff6b6b';
+                } else {
+                    animateNumber(prevElHotTemp, oldHotVal, hottest.temperature||0, '°C', 1);
+                }
+
+                const prevElRec = document.getElementById('recordCount');
+                prevElRec.textContent = data.length;
+                prevElRec.classList.add('flash');
+                setTimeout(() => prevElRec.classList.remove('flash'), 500);
+
+                // ---- 温度趋势箭头 ----
+                if (previousData.length > 0) {
+                    const prevAvg = previousData.map(d=>d.temperature).filter(t=>t!=null).reduce((a,b)=>a+b,0)/previousData.length;
+                    const diff = avg - prevAvg;
+                    const el = document.getElementById('tempChange');
+                    if (Math.abs(diff) > 0.05) {
+                        el.textContent = (diff>0?'↑':'↓')+' '+Math.abs(diff).toFixed(1)+'°C';
+                        el.className = 'kpi-change '+(diff>0?'up':'down');
+                    } else {
+                        el.textContent = '➡️ 稳定';
+                        el.className = 'kpi-change';
+                        el.style.color = '#8899bb';
+                    }
+                }
+
+                // ---- 弹幕：检测极端天气（大风>=20km/h 或 暴雨>=85%）----
+                detectExtremeAlerts(data);
+
+                // ---- 保存快照 ----
+                const newTempMap = {};
+                data.forEach(d => { newTempMap[d.city] = d.temperature; });
+                previousTempMap = newTempMap;
+
+                // ---- 更新地图时间 ----
+                document.getElementById('mapUpdateTime').textContent =
+                    '更新于 ' + new Date().toLocaleTimeString();
+
+                // ---- 更新图表 ----
+                renderMap(data);
+                renderTripleChart(data);
+                renderPieChart(data);
+                renderRegionChart(data);
+                renderAlertList(data);
+                fetchMonitor();
+
+                previousData = data;
+                updateTime();
+            })
+            .catch(err => console.error('数据加载失败:', err));
+    }
+
+    // ================================================================
+    //  🔥 中国地图（按省份温度着色）
+    // ================================================================
+    let mapLoaded = false;
+    function renderMap(data) {
+        // 计算省份平均温度
+        const provTemps = {};
+        const provCount = {};
+        data.forEach(d => {
+            const prov = cityToProvince[d.city] || '其他';
+            if (!provTemps[prov]) { provTemps[prov] = 0; provCount[prov] = 0; }
+            provTemps[prov] += d.temperature || 0;
+            provCount[prov] += 1;
+        });
+        const mapData = Object.keys(provTemps).map(p => ({
+            name: p,
+            value: +(provTemps[p] / provCount[p]).toFixed(1)
+        }));
+
+        if (!mapLoaded) {
+            // 加载中国地图 GeoJSON
+            fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
+                .then(r => r.json())
+                .then(geoJson => {
+                    echarts.registerMap('china', geoJson);
+                    mapLoaded = true;
+                    drawChinaMap(mapData);
+                })
+                .catch(() => {
+                    // 备用：用散点图代替
+                    drawSimpleScatter(data);
+                });
+        } else {
+            drawChinaMap(mapData);
+        }
+    }
+
+    function drawChinaMap(mapData) {
+        chinaMapChart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: p => p.name ? '<strong>'+p.name+'</strong><br/>🌡️ 平均温度: <strong>'+p.value+'°C</strong>' : ''
+            },
+            visualMap: {
+                min: 10,
+                max: 35,
+                left: 8,
+                bottom: 8,
+                text: ['高温', '低温'],
+                textStyle: { color: '#8899bb', fontSize: 10 },
+                inRange: {
+                    color: ['#6bcbff', '#00d4ff', '#4ecdc4', '#ffd93d', '#ff9f43', '#ff6b6b']
+                },
+                calculable: true
+            },
+            series: [{
+                type: 'map',
+                map: 'china',
+                roam: false,
+                zoom: 1.15,
+                center: [104.5, 36],
+                label: { show: false },
+                emphasis: {
+                    label: { show: true, color: '#fff', fontSize: 11 },
+                    itemStyle: { areaColor: '#ffd93d', shadowBlur: 20, shadowColor: 'rgba(0,212,255,0.5)' }
+                },
+                itemStyle: {
+                    borderColor: 'rgba(0,212,255,0.25)',
+                    borderWidth: 1
+                },
+                data: mapData
+            }]
+        });
+    }
+
+    function drawSimpleScatter(data) {
+        // 备用散点图（地图加载失败时）
+        const cities = data.map(d => ({
+            name: d.city,
+            value: [Math.random()*20+100, Math.random()*15+23, d.temperature]
+        }));
+        // 简化：显示为柱状图提示
+        chinaMapChart.setOption({
+            title: { text: '🗺️ 地图加载中...', left:'center', top:'center',
+                textStyle:{color:'#445577',fontSize:16} },
+            series: []
+        });
+    }
+
+    // ================================================================
+    //  🔥 温湿风三要素叠加折线图
+    // ================================================================
+    function renderTripleChart(data) {
+        const sorted = [...data].sort((a,b)=>(a.temperature||0)-(b.temperature||0));
+        // 取30个城市避免拥挤
+        const step = Math.max(1, Math.floor(sorted.length / 30));
+        const sampled = sorted.filter((_,i) => i % step === 0).slice(0, 30);
+
+        tripleChart.setOption({
+            animationDuration:500, animationDurationUpdate:400,
+            tooltip: {
+                trigger:'axis',
+                formatter: function(params) {
+                    let s = '<strong>'+params[0].name+'</strong><br/>';
+                    params.forEach(p => {
+                        const unit = p.seriesName.includes('温度')?'°C':p.seriesName.includes('湿度')?'%':'km/h';
+                        s += p.marker + ' ' + p.seriesName + ': <strong>' + p.value + unit + '</strong><br/>';
+                    });
+                    return s;
+                }
+            },
+            legend: {
+                data: ['🌡️ 温度', '💧 湿度', '🌬️ 风速'],
+                bottom: 0,
+                textStyle: { color: '#8899bb', fontSize: 10 },
+                itemWidth: 18, itemHeight: 3
+            },
+            grid: { left:48, right:48, top:20, bottom:40 },
+            xAxis: {
+                type:'category',
+                data: sampled.map(d => d.city),
+                axisLabel: { color:'#8899bb', fontSize: 9, rotate: 35 },
+                axisTick: { show: false }
+            },
+            yAxis: [
+                {
+                    type:'value',
+                    name:'°C / km/h',
+                    nameTextStyle:{color:'#8899bb',fontSize:9},
+                    axisLabel:{color:'#8899bb',fontSize:9},
+                    splitLine:{lineStyle:{color:'rgba(255,255,255,0.03)'}}
+                },
+                {
+                    type:'value',
+                    name:'% 湿度',
+                    nameTextStyle:{color:'#6bcbff',fontSize:9},
+                    axisLabel:{color:'#6bcbff',fontSize:9},
+                    splitLine:{show:false},
+                    min: 0, max: 100
+                }
+            ],
+            series: [
+                // 🌡️ 温度：实心圆 + 实线 + 暖色渐变
+                {
+                    name: '🌡️ 温度',
+                    type: 'line',
+                    yAxisIndex: 0,
+                    data: sampled.map(d => (d.temperature||0).toFixed(1)),
+                    smooth: true,
+                    symbol: 'circle',
+                    symbolSize: 8,
+                    lineStyle: {
+                        color: new echarts.graphic.LinearGradient(0,0,1,0,[
+                            {offset:0,color:'#4ecdc4'},{offset:0.5,color:'#ffd93d'},{offset:1,color:'#ff6b6b'}
+                        ]),
+                        width: 2.5
+                    },
+                    itemStyle: { color: '#ff6b6b', borderColor: '#fff', borderWidth: 1 },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0,0,0,1,[
+                            {offset:0,color:'rgba(255,107,107,0.12)'},{offset:1,color:'rgba(255,107,107,0)'}
+                        ])
+                    },
+                    label: { show: false }
+                },
+                // 💧 湿度：菱形 + 虚线 + 蓝色
+                {
+                    name: '💧 湿度',
+                    type: 'line',
+                    yAxisIndex: 1,
+                    data: sampled.map(d => (d.humidity||0).toFixed(1)),
+                    smooth: true,
+                    symbol: 'diamond',
+                    symbolSize: 10,
+                    lineStyle: { color: '#6bcbff', width: 2, type: 'dashed' },
+                    itemStyle: { color: '#6bcbff', borderColor: '#fff', borderWidth: 1 },
+                    areaStyle: {
+                        color: new echarts.graphic.LinearGradient(0,0,0,1,[
+                            {offset:0,color:'rgba(107,203,255,0.08)'},{offset:1,color:'rgba(107,203,255,0)'}
+                        ])
+                    },
+                    label: { show: false }
+                },
+                // 🌬️ 风速：三角形 + 点划线 + 翠绿
+                {
+                    name: '🌬️ 风速',
+                    type: 'line',
+                    yAxisIndex: 0,
+                    data: sampled.map(d => (d.windSpeed||0).toFixed(1)),
+                    smooth: true,
+                    symbol: 'triangle',
+                    symbolSize: 11,
+                    symbolRotate: 0,
+                    lineStyle: { color: '#4ecdc4', width: 2, type: 'dotted' },
+                    itemStyle: { color: '#4ecdc4', borderColor: '#fff', borderWidth: 1 },
+                    label: { show: false }
+                }
+            ]
+        });
+    }
+
+    // ================================================================
+    //  饼图
+    // ================================================================
+    function renderPieChart(data) {
+        const wm={}; data.forEach(d=>{const w=d.weather||'未知';wm[w]=(wm[w]||0)+1;});
+        const pieData=Object.entries(wm).map(([n,v])=>({name:n,value:v})).sort((a,b)=>b.value-a.value);
+        const colors=['#00d4ff','#0099ff','#ffcc00','#ff6b6b','#6bcbff','#ffd93d','#4ecdc4','#a29bfe'];
+        pieChart.setOption({
+            animationDuration:500,animationDurationUpdate:400,
+            tooltip:{trigger:'item',formatter:p=>'<strong>'+p.name+'</strong><br/>'+p.value+'个 ('+p.percent+'%)'},
+            legend:{orient:'vertical',right:6,top:'center',textStyle:{color:'#8899bb',fontSize:9},itemWidth:8,itemHeight:8},
+            series:[{type:'pie',radius:['35%','58%'],center:['40%','50%'],data:pieData,
+                label:{color:'#ccc',fontSize:9,formatter:'{b}\n{d}%'},
+                itemStyle:{borderColor:'#0a1628',borderWidth:2,borderRadius:2},color:colors
+            }]
+        });
+    }
+
+    // ================================================================
+    //  七大区
+    // ================================================================
+    function renderRegionChart(data) {
+        const regions={
+            '华北':['北京','天津','石家庄','唐山','保定','太原','大同','呼和浩特','包头'],
+            '东北':['沈阳','大连','长春','吉林','哈尔滨','大庆'],
+            '华东':['上海','南京','苏州','无锡','杭州','宁波','温州','合肥','芜湖','福州','厦门','泉州','南昌','九江','赣州','济南','青岛','烟台'],
+            '华南':['广州','深圳','珠海','南宁','桂林','北海','海口','三亚'],
+            '华中':['郑州','洛阳','南阳','武汉','宜昌','襄阳','长沙','岳阳','张家界'],
+            '西南':['重庆','成都','绵阳','乐山','贵阳','遵义','昆明','丽江','大理','拉萨','日喀则'],
+            '西北':['西安','咸阳','延安','兰州','天水','敦煌','西宁','海东','银川','石嘴山','乌鲁木齐','克拉玛依','喀什','伊犁']
+        };
+        const rt={};Object.keys(regions).forEach(r=>rt[r]=[]);
+        data.forEach(d=>{let f=false;for(const[r,cs]of Object.entries(regions)){if(cs.includes(d.city)){rt[r].push(d.temperature);f=true;break;}}if(!f){if(!rt['其他'])rt['其他']=[];rt['其他'].push(d.temperature);}});
+        const ad=Object.entries(rt).filter(([_,t])=>t.length>0).map(([n,t])=>({name:n,value:t.reduce((a,b)=>a+b,0)/t.length})).sort((a,b)=>b.value-a.value);
+        regionChart.setOption({
+            animationDuration:500,animationDurationUpdate:400,
+            tooltip:{trigger:'axis',formatter:p=>'<strong>'+p[0].name+'</strong><br/>平均: '+p[0].value.toFixed(1)+'°C'},
+            grid:{left:44,right:14,top:16,bottom:28},
+            xAxis:{type:'category',data:ad.map(d=>d.name),axisLabel:{color:'#8899bb',fontSize:9}},
+            yAxis:{type:'value',name:'°C',nameTextStyle:{color:'#8899bb'},axisLabel:{color:'#8899bb'},splitLine:{lineStyle:{color:'rgba(255,255,255,0.03)'}}},
+            series:[{type:'bar',
+                data:ad.map(d=>({value:d.value,itemStyle:{color:d.value>25?'#ff6b6b':d.value>20?'#ffd93d':'#00d4ff',borderRadius:[3,3,0,0]}})),
+                barWidth:18,label:{show:true,position:'top',color:'#fff',fontSize:9,formatter:p=>p.value.toFixed(1)+'°C'}
+            }]
+        });
+    }
+
+    // ================================================================
+    //  监控状态（真实数据，从 Redis 拉取）
+    // ================================================================
+    function fetchMonitor() {
+        fetch('/api/weather/monitor')
+            .then(res => res.json())
+            .then(mon => {
+                if (!mon || mon.error) return;
+                const statuses = [
+                    { name:'Kafka堆积', value: parseInt(mon.kafka_score) || 85 },
+                    { name:'HDFS使用率', value: parseInt(mon.hdfs_score) || 85 },
+                    { name:'Redis内存', value: parseInt(mon.redis_score) || 85 },
+                    { name:'清洗成功率', value: parseInt(mon.cleaner) || 80 }
+                ];
+                monitorChart.setOption({
+                    animationDuration:500,animationDurationUpdate:400,
+                    tooltip:{trigger:'axis',formatter:p=>'<strong>'+p[0].name+'</strong><br/>健康度: '+p[0].value+'%'},
+                    grid:{left:48,right:14,top:14,bottom:28},
+                    xAxis:{type:'category',data:statuses.map(d=>d.name),axisLabel:{color:'#8899bb',fontSize:8}},
+                    yAxis:{type:'value',min:60,max:100,axisLabel:{color:'#8899bb',formatter:'{value}%'},splitLine:{lineStyle:{color:'rgba(255,255,255,0.03)'}}},
+                    series:[{type:'bar',
+                        data:statuses.map(d=>({value:d.value,itemStyle:{color:d.value>=95?'#00d4ff':d.value>=85?'#ffd93d':'#ff6b6b',borderRadius:[3,3,0,0]}})),
+                        barWidth:16,label:{show:true,position:'top',color:'#fff',fontSize:8,formatter:p=>p.value+'%'}
+                    }]
+                });
+
+                // 更新数据源状态
+                const sparkEl = document.getElementById('sparkStatus');
+                if (parseInt(mon.extreme_alerts) > 0) {
+                    sparkEl.textContent = '● 运行中 (' + mon.extreme_alerts + '条预警)';
+                    sparkEl.style.color = '#ffd93d';
+                } else {
+                    sparkEl.textContent = '● 运行中';
+                    sparkEl.style.color = '#00d4ff';
+                }
+            })
+            .catch(err => console.error('监控数据加载失败:', err));
+    }
+
+    // ================================================================
+    //  告警列表
+    // ================================================================
+    function renderAlertList(data) {
+        const alerts=data.filter(d=>(d.temperature||0)>35||(d.temperature||0)<0).slice(0,10);
+        const container=document.getElementById('alertList');
+        if(alerts.length===0){container.innerHTML='<div class="no-data">✅ 暂无告警</div>';return;}
+        let html='';
+        alerts.forEach(d=>{
+            const isHot=(d.temperature||0)>35;
+            const time=new Date().toLocaleTimeString();
+            const changed=previousTempMap[d.city]!==undefined&&Math.abs((d.temperature||0)-previousTempMap[d.city])>0.5;
+            html+=`<div class="alert-item${changed?' row-changed':''}">
+                <span class="city">${d.city||'未知'}</span>
+                <span class="temp ${isHot?'hot':'cold'}">${d.temperature||0}°C</span>
+                <span style="color:#8899bb;font-size:9px;">${isHot?'🔥高温':'❄️低温'}</span>
+                <span class="time">${time}</span>
+            </div>`;
+        });
+        container.innerHTML=html;
+    }
+
+    // ================================================================
+    //  启动
+    // ================================================================
+    updateTime();
+    fetchData();
+    fetchMonitor();
+    setInterval(fetchData, 3000);
+    setInterval(fetchMonitor, 3000);
+    setInterval(updateTime, 1000);
+
+    window.addEventListener('resize', ()=>{
+        [pieChart,tripleChart,regionChart,monitorChart,chinaMapChart].forEach(c=>c.resize());
+    });
+</script>
+
+</body>
+</html>

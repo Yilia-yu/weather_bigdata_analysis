@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.weather.record.mapper.BizWeatherRecordMapper">
+    
+    <resultMap type="BizWeatherRecord" id="BizWeatherRecordResult">
+        <result property="id"    column="id"    />
+        <result property="cityName"    column="city_name"    />
+        <result property="province"    column="province"    />
+        <result property="region"    column="region"    />
+        <result property="temperature"    column="temperature"    />
+        <result property="humidity"    column="humidity"    />
+        <result property="windSpeed"    column="wind_speed"    />
+        <result property="weather"    column="weather"    />
+        <result property="aqi"    column="aqi"    />
+        <result property="aqiLevel"    column="aqi_level"    />
+        <result property="dataSource"    column="data_source"    />
+        <result property="recordTime"    column="record_time"    />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <sql id="selectBizWeatherRecordVo">
+        select id, city_name, province, region, temperature, humidity, wind_speed, weather, aqi, aqi_level, data_source, record_time, create_time from biz_weather_record
+    </sql>
+
+    <select id="selectBizWeatherRecordList" parameterType="BizWeatherRecord" resultMap="BizWeatherRecordResult">
+        <include refid="selectBizWeatherRecordVo"/>
+        <where>  
+            <if test="cityName != null  and cityName != ''"> and city_name like concat('%', #{cityName}, '%')</if>
+            <if test="province != null  and province != ''"> and province = #{province}</if>
+            <if test="region != null  and region != ''"> and region = #{region}</if>
+            <if test="temperature != null "> and temperature = #{temperature}</if>
+            <if test="humidity != null "> and humidity = #{humidity}</if>
+            <if test="windSpeed != null "> and wind_speed = #{windSpeed}</if>
+            <if test="weather != null  and weather != ''"> and weather = #{weather}</if>
+            <if test="aqi != null "> and aqi = #{aqi}</if>
+            <if test="aqiLevel != null  and aqiLevel != ''"> and aqi_level = #{aqiLevel}</if>
+            <if test="dataSource != null  and dataSource != ''"> and data_source = #{dataSource}</if>
+            <if test="recordTime != null "> and record_time = #{recordTime}</if>
+        </where>
+    </select>
+    
+    <select id="selectBizWeatherRecordById" parameterType="Long" resultMap="BizWeatherRecordResult">
+        <include refid="selectBizWeatherRecordVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertBizWeatherRecord" parameterType="BizWeatherRecord" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_weather_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">city_name,</if>
+            <if test="province != null">province,</if>
+            <if test="region != null">region,</if>
+            <if test="temperature != null">temperature,</if>
+            <if test="humidity != null">humidity,</if>
+            <if test="windSpeed != null">wind_speed,</if>
+            <if test="weather != null">weather,</if>
+            <if test="aqi != null">aqi,</if>
+            <if test="aqiLevel != null">aqi_level,</if>
+            <if test="dataSource != null">data_source,</if>
+            <if test="recordTime != null">record_time,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">#{cityName},</if>
+            <if test="province != null">#{province},</if>
+            <if test="region != null">#{region},</if>
+            <if test="temperature != null">#{temperature},</if>
+            <if test="humidity != null">#{humidity},</if>
+            <if test="windSpeed != null">#{windSpeed},</if>
+            <if test="weather != null">#{weather},</if>
+            <if test="aqi != null">#{aqi},</if>
+            <if test="aqiLevel != null">#{aqiLevel},</if>
+            <if test="dataSource != null">#{dataSource},</if>
+            <if test="recordTime != null">#{recordTime},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBizWeatherRecord" parameterType="BizWeatherRecord">
+        update biz_weather_record
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="cityName != null and cityName != ''">city_name = #{cityName},</if>
+            <if test="province != null">province = #{province},</if>
+            <if test="region != null">region = #{region},</if>
+            <if test="temperature != null">temperature = #{temperature},</if>
+            <if test="humidity != null">humidity = #{humidity},</if>
+            <if test="windSpeed != null">wind_speed = #{windSpeed},</if>
+            <if test="weather != null">weather = #{weather},</if>
+            <if test="aqi != null">aqi = #{aqi},</if>
+            <if test="aqiLevel != null">aqi_level = #{aqiLevel},</if>
+            <if test="dataSource != null">data_source = #{dataSource},</if>
+            <if test="recordTime != null">record_time = #{recordTime},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBizWeatherRecordById" parameterType="Long">
+        delete from biz_weather_record where id = #{id}
+    </delete>
+
+    <delete id="deleteBizWeatherRecordByIds" parameterType="String">
+        delete from biz_weather_record where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 大屏：查询各城市最新天气记录 -->
+    <select id="selectWeatherCurrent" resultMap="BizWeatherRecordResult">
+        SELECT r.id, r.city_name, 
+               COALESCE(c.province, r.province) as province,
+               COALESCE(c.region, r.region) as region,
+               r.temperature, r.humidity, 
+               r.wind_speed, r.weather, r.aqi, r.aqi_level, r.data_source, r.record_time, r.create_time
+        FROM biz_weather_record r
+        LEFT JOIN biz_weather_city c ON r.city_name = c.city_name
+        INNER JOIN (
+            SELECT city_name, MAX(record_time) as max_time
+            FROM biz_weather_record
+            GROUP BY city_name
+        ) latest ON r.city_name = latest.city_name AND r.record_time = latest.max_time
+        ORDER BY r.city_name
+    </select>
+
+    <!-- 大屏：天气统计数据（仅基于各城市最新一条记录） -->
+    <select id="selectWeatherStats" resultType="java.util.HashMap">
+        SELECT 
+            COUNT(*) as city_count,
+            ROUND(AVG(r.temperature), 1) as avg_temp,
+            (SELECT r2.city_name FROM biz_weather_record r2
+             INNER JOIN (
+                 SELECT city_name, MAX(record_time) as max_time
+                 FROM biz_weather_record
+                 GROUP BY city_name
+             ) l2 ON r2.city_name = l2.city_name AND r2.record_time = l2.max_time
+             ORDER BY r2.temperature DESC LIMIT 1) as hottest_city,
+            MAX(r.temperature) as hottest_temp
+        FROM biz_weather_record r
+        INNER JOIN (
+            SELECT city_name, MAX(record_time) as max_time
+            FROM biz_weather_record
+            GROUP BY city_name
+        ) latest ON r.city_name = latest.city_name AND r.record_time = latest.max_time
+    </select>
+</mapper>
